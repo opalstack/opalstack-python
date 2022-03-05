@@ -25,8 +25,8 @@ class ApiModelManager():
         if not tocreate: return created
         logging.info(f'Creating {self.model_name_plural}: {repr(tocreate)}')
         created += self.api.http_post_result(f'/{self.model_name}/create/', tocreate, ensure_status=[200])
-        if wait:
-            self.api.wait_ready(self.model_name, [item['id'] for item in created])
+        if wait and not self.is_instantaneous:
+            self.api.wait_ready(self.model_name, [item[self.primary_key] for item in created])
         return created
 
     def update(self, toupdate, wait=True):
@@ -38,8 +38,8 @@ class ApiModelManager():
         if not toupdate: return updated
         logging.info(f'Updating {self.model_name_plural}: {repr(toupdate)}')
         updated += self.api.http_post_result(f'/{self.model_name}/update/', toupdate, ensure_status=[200])
-        if wait:
-            self.api.wait_ready(self.model_name, [item['id'] for item in updated])
+        if wait and not self.is_instantaneous:
+            self.api.wait_ready(self.model_name, [item[self.primary_key] for item in updated])
         return updated
 
     def delete(self, todelete, wait=True):
@@ -49,9 +49,9 @@ class ApiModelManager():
         """
         if not todelete: return
         logging.info(f'Deleting {self.model_name_plural}: {repr(todelete)}')
-        self.api.http_post_result(f'/{self.model_name}/delete/', [{'id': item['id']} for item in todelete], ensure_status=[200])
-        if wait:
-            self.api.wait_deleted(self.model_name, [item['id'] for item in todelete])
+        self.api.http_post_result(f'/{self.model_name}/delete/', [{self.primary_key: item[self.primary_key]} for item in todelete], ensure_status=[200])
+        if wait and not self.is_instantaneous:
+            self.api.wait_deleted(self.model_name, [item[self.primary_key] for item in todelete])
 
     # -- Equality, Obstruction, and Satisfaction --
     #

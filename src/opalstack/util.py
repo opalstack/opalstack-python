@@ -1,5 +1,9 @@
+import time
 import logging
 import subprocess
+
+def ts():
+    return time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())
 
 def run(cmd, stdin=None, strip=True, ensure_status=[0]):
     logging.debug(f'Running cmd: {cmd}')

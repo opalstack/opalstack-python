@@ -4,6 +4,8 @@ class DnsrecordsManager(ApiModelManager):
     def __init__(self, api):
         self.model_name        = 'dnsrecord'
         self.model_name_plural = 'dnsrecords'
+        self.is_instantaneous  = False
+        self.primary_key       = 'id'
         super().__init__(api)
 
     def list_all(self, *args, **kwargs): return super().list_all(*args, **kwargs)
@@ -13,11 +15,11 @@ class DnsrecordsManager(ApiModelManager):
     def delete(self, *args, **kwargs):   return super().delete(*args, **kwargs)
 
     def check_equals(self, a, b):
-        if 'domain_name' not in a: return False
-        if 'domain_name' not in b: return False
-        return ( a['domain_name'] == b['domain_name'] and
+        return ( a['domain'] == b['domain'] and
                  a['type'] == b['type'] and
-                 a['content'] == b['content'] )
+                 a['content'] == b['content'] and
+                 a['priority'] == b['priority'] and
+                 a['ttl'] == b['ttl'] )
 
     def check_obstructs(self, existing, new):
         return False

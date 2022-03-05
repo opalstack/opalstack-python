@@ -1,9 +1,9 @@
 from .manager import ApiModelManager
 
-class SitesManager(ApiModelManager):
+class OSVarsManager(ApiModelManager):
     def __init__(self, api):
-        self.model_name        = 'site'
-        self.model_name_plural = 'sites'
+        self.model_name        = 'osvar'
+        self.model_name_plural = 'osvars'
         self.is_instantaneous  = False
         self.primary_key       = 'id'
         super().__init__(api)
@@ -16,10 +16,12 @@ class SitesManager(ApiModelManager):
 
     def check_equals(self, a, b):
         return ( a['name'] == b['name'] and
-                 a['server'] == b['server'] )
+                 a['content'] == b['content'] and
+                 a['global'] == b['global'] and
+                 sorted(a['osusers']) == sorted(b['osusers']) )
 
     def check_obstructs(self, existing, new):
-        return self.check_equals(new, existing)
+        return False
 
     def check_satisfies(self, existing, new):
-        return False
+        return self.check_equals(new, existing)

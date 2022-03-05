@@ -1,10 +1,10 @@
 from .manager import ApiModelManager
 
-class SitesManager(ApiModelManager):
+class CertsManager(ApiModelManager):
     def __init__(self, api):
-        self.model_name        = 'site'
-        self.model_name_plural = 'sites'
-        self.is_instantaneous  = False
+        self.model_name        = 'cert'
+        self.model_name_plural = 'certs'
+        self.is_instantaneous  = True
         self.primary_key       = 'id'
         super().__init__(api)
 
@@ -16,10 +16,12 @@ class SitesManager(ApiModelManager):
 
     def check_equals(self, a, b):
         return ( a['name'] == b['name'] and
-                 a['server'] == b['server'] )
+                 a['cert'] == b['cert'] and
+                 a['intermediates'] == b['intermediates'] and
+                 a['key'] == b['key'] )
 
     def check_obstructs(self, existing, new):
-        return self.check_equals(new, existing)
+        return False
 
     def check_satisfies(self, existing, new):
-        return False
+        return self.check_equals(new, existing)
