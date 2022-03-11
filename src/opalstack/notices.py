@@ -1,10 +1,10 @@
 from .manager import ApiModelManager
 
-class SitesManager(ApiModelManager):
+class NoticesManager(ApiModelManager):
     def __init__(self, api):
-        self.model_name        = 'site'
-        self.model_name_plural = 'sites'
-        self.is_instantaneous  = False
+        self.model_name        = 'notice'
+        self.model_name_plural = 'notices'
+        self.is_instantaneous  = True
         self.primary_key       = 'id'
         super().__init__(api)
 
@@ -15,11 +15,11 @@ class SitesManager(ApiModelManager):
     def delete(self, *args, **kwargs):   return super().delete(*args, **kwargs)
 
     def check_equals(self, a, b):
-        return ( a['name'] == b['name'] and
-                 a['server'] == b['server'] )
+        return ( a['type'] == b['type'] and
+                 a['content'] == b['content'] )
 
     def check_obstructs(self, existing, new):
-        return self.check_equals(new, existing)
+        return False
 
     def check_satisfies(self, existing, new):
-        return False
+        return self.check_equals(new, existing)

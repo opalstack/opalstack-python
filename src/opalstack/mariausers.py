@@ -4,6 +4,8 @@ class MariausersManager(ApiModelManager):
     def __init__(self, api):
         self.model_name        = 'mariauser'
         self.model_name_plural = 'mariausers'
+        self.is_instantaneous  = False
+        self.primary_key       = 'id'
         super().__init__(api)
 
     def list_all(self, *args, **kwargs): return super().list_all(*args, **kwargs)

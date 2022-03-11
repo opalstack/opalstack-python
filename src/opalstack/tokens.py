@@ -1,11 +1,11 @@
 from .manager import ApiModelManager
 
-class SitesManager(ApiModelManager):
+class TokensManager(ApiModelManager):
     def __init__(self, api):
-        self.model_name        = 'site'
-        self.model_name_plural = 'sites'
-        self.is_instantaneous  = False
-        self.primary_key       = 'id'
+        self.model_name        = 'token'
+        self.model_name_plural = 'tokens'
+        self.is_instantaneous  = True
+        self.primary_key       = 'key'
         super().__init__(api)
 
     def list_all(self, *args, **kwargs): return super().list_all(*args, **kwargs)
@@ -16,10 +16,10 @@ class SitesManager(ApiModelManager):
 
     def check_equals(self, a, b):
         return ( a['name'] == b['name'] and
-                 a['server'] == b['server'] )
+                 a['key'] == b['key'] )
 
     def check_obstructs(self, existing, new):
-        return self.check_equals(new, existing)
+        return False
 
     def check_satisfies(self, existing, new):
-        return False
+        return self.check_equals(new, existing)
