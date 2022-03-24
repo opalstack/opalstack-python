@@ -110,7 +110,6 @@ opalapi = opalstack.Api(token='0123456789abcdef0123456789abcdef01234567')
 
 # Get all existing osusers.
 #
-from pprint import pprint
 osusers = opalapi.osusers.list_all()
 pprint(osusers)
 
@@ -120,7 +119,6 @@ pprint(first_osuser['server'])
 
 # Get all existing osusers, but embed the 'server' field with a dict instead of a UUID.
 #
-from pprint import pprint
 osusers = opalapi.osusers.list_all(embed=['server'])
 pprint(osusers)
 
@@ -284,6 +282,17 @@ resp = requests.get(url)
 assert resp.status_code == 200
 assert 'wordpress' in str(resp.content).lower()
 print(f'Assuming there were no AsserionErrors, your site is now live at {url}')
+
+
+# Update the created site, renaming it to 'mytestsite2'
+#
+# Only provided fields are updated. Omitted fields remain as-is.
+#
+sites_to_update = [{
+    'id': created_site['id'],
+    'name': 'mytestsite2',
+}]
+updated_site = one(opalapi.sites.update(sites_to_update))
 
 
 # Delete the created site, app, osuser, and domain
