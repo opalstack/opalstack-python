@@ -2,6 +2,7 @@ import os
 import time
 import logging
 import subprocess
+import textwrap
 
 def ts():
     return time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())
@@ -116,6 +117,9 @@ class SshRunner():
         self.ssh_privkey_path = ssh_privkey_path
         self.ssh_pubkey_path = ssh_pubkey_path
 
+    def has_key(self):
+        return bool(self.ssh_privkey_path)
+
     #
     # Password-based SSH
     #
@@ -126,7 +130,7 @@ class SshRunner():
         try:
             return run(prelude + cmd, *args, **kwargs)
         finally:
-            os.remove(self.ssh_password_filepath)
+            if os.path.exists(self.ssh_password_filepath): os.remove(self.ssh_password_filepath)
 
     def run_passbased_ssh(self, remote_cmd, *args, **kwargs):
         prelude = [ '/usr/bin/ssh', '-q',
@@ -223,7 +227,7 @@ class SshRunner():
                 '-N', '',
                 '-f', self.ssh_privkey_path
         ]
-        subprocess.run(cmd)
+        run(cmd)
 
     def set_ssh_key(self):
         if ( not os.path.exists(self.ssh_privkey_path) or
@@ -241,3 +245,170 @@ class SshRunner():
         self.ensure_valid_ssh_password()
         self.run_via_sshpass(cmd)
         logging.debug('SSH key set successfully')
+
+    #
+    # Default SSH
+    #
+
+    def run_ssh(self, remote_cmd, *args, **kwargs):
+        if self.has_key():
+            return self.run_keybased_ssh(remote_cmd, *args, **kwargs)
+        else:
+            return self.run_passbased_ssh(remote_cmd, *args, **kwargs)
+
+    def run_scp(self, src, dst, *args, **kwargs):
+        if self.has_key():
+            return self.run_keybased_scp(src, dst, *args, **kwargs)
+        else:
+            return self.run_passbased_scp(src, dst, *args, **kwargs)
+
+    def run_rsync(self, src, dst, *args, **kwargs):
+        if self.has_key():
+            return self.run_keybased_rsync(src, dst, *args, **kwargs)
+        else:
+            return self.run_passbased_rsync(src, dst, *args, **kwargs)
+
+    def check_ssh_credentials(self):
+        if self.has_key():
+            return self.check_ssh_key()
+        else:
+            return self.check_ssh_password()
+
+    def ensure_valid_ssh_credentials(self):
+        if self.has_key():
+            return self.ensure_valid_ssh_key()
+        else:
+            return self.ensure_valid_ssh_password()
+
+class MariaTool():
+    def __init__(self, db_host, db_port, db_user, db_pass, db_name, sqlpasswd_filepath):
+        self.db_host = db_host
+        self.db_port = db_port
+        self.db_user = db_user
+        self.db_pass = db_pass
+        self.db_name = db_name
+        self.sqlpasswd_filepath = sqlpasswd_filepath
+
+    @staticmethod
+    def quoted(password):
+        if password.startswith('"') and password.endswith('"'): return password
+        if password.startswith("'") and password.endswith("'"): return password
+        if '"' not in password: return f'"{password}"'
+        if "'" not in password: return f"'{password}'"
+        raise ValueError('Password too complex. It must not contain both single and double quotes.')
+
+    def write_sqlpasswd(self):
+        sqlpasswd_contents = textwrap.dedent(f"""
+            [mysql]
+            host={self.db_host}
+            port={self.db_port}
+            user={self.db_user}
+            password={self.quoted(self.db_pass)}
+
+            [mysqldump]
+            host={self.db_host}
+            port={self.db_port}
+            user={self.db_user}
+            password={self.quoted(self.db_pass)}
+        """).strip()
+        with open(self.sqlpasswd_filepath, 'w') as fp: fp.write(sqlpasswd_contents + '\n')
+
+    def export_local_db(self, sql_filepath):
+        cmd = f'mysqldump --defaults-extra-file={self.sqlpasswd_filepath} -r {sql_filepath} -R {self.db_name}'
+        self.write_sqlpasswd()
+        try:
+            run(cmd)
+        finally:
+            if os.path.exists(self.sqlpasswd_filepath): os.remove(self.sqlpasswd_filepath)
+
+    def export_remote_db(self, sshrunner, sql_filepath):
+        cmd = f'mysqldump --defaults-extra-file={self.sqlpasswd_filepath} -r {sql_filepath} -R {self.db_name}'
+        self.write_sqlpasswd()
+        sent_sqlpasswd = False
+        try:
+            sshrunner.ensure_valid_ssh_credentials()
+            sshrunner.run_scp(self.sqlpasswd_filepath, f'{sshrunner.userhost}:')
+            sent_sqlpasswd = True
+            sshrunner.run_ssh(cmd)
+        finally:
+            if os.path.exists(self.sqlpasswd_filepath): os.remove(self.sqlpasswd_filepath)
+            if sent_sqlpasswd:
+                sshrunner.run_ssh(f'rm -f {self.sqlpasswd_filepath}')
+
+    def import_local_db(self, sql_filepath):
+        cmd = f'mysql --defaults-extra-file={self.sqlpasswd_filepath} -u {self.db_user} {self.db_name} < {sql_filepath}'
+        self.write_sqlpasswd()
+        try:
+            run(cmd)
+        finally:
+            if os.path.exists(self.sqlpasswd_filepath): os.remove(self.sqlpasswd_filepath)
+
+    def import_remote_db(self, sshrunner, sql_filepath):
+        cmd = f'mysql --defaults-extra-file={self.sqlpasswd_filepath} -u {self.db_user} {self.db_name} < {sql_filepath}'
+        self.write_sqlpasswd()
+        sent_sqlpasswd = False
+        try:
+            sshrunner.ensure_valid_ssh_credentials()
+            sshrunner.run_scp(self.sqlpasswd_filepath, f'{sshrunner.userhost}:')
+            sent_sqlpasswd = True
+            sshrunner.run_ssh(cmd)
+        finally:
+            if os.path.exists(self.sqlpasswd_filepath): os.remove(self.sqlpasswd_filepath)
+            if sent_sqlpasswd:
+                sshrunner.run_ssh(f'rm -f {self.sqlpasswd_filepath}')
+
+class PsqlTool():
+    def __init__(self, db_host, db_port, db_user, db_pass, db_name, sqlpasswd_filepath):
+        self.db_host = db_host
+        self.db_port = db_port
+        self.db_user = db_user
+        self.db_pass = db_pass
+        self.db_name = db_name
+        self.sqlpasswd_filepath = sqlpasswd_filepath
+
+    def write_sqlpasswd(self):
+        with open(self.sqlpasswd_filepath, 'w') as fp: fp.write(self.db_pass + '\n')
+
+    def export_local_db(self, sql_filepath):
+        cmd = f"""PGPASSWORD="$(cat {self.sqlpasswd_filepath})" pg_dump -h {self.db_host} -p {self.db_port} -U {self.db_user} {self.db_name} > {sql_filepath}"""
+        self.write_sqlpasswd()
+        try:
+            run(cmd)
+        finally:
+            if os.path.exists(self.sqlpasswd_filepath): os.remove(self.sqlpasswd_filepath)
+
+    def export_remote_db(self, sshrunner, sql_filepath):
+        cmd = f"""PGPASSWORD="$(cat {self.sqlpasswd_filepath})" pg_dump -h {self.db_host} -p {self.db_port} -U {self.db_user} {self.db_name} > {sql_filepath}"""
+        self.write_sqlpasswd()
+        sent_sqlpasswd = False
+        try:
+            sshrunner.ensure_valid_ssh_credentials()
+            sshrunner.run_scp(self.sqlpasswd_filepath, f'{sshrunner.userhost}:')
+            sent_sqlpasswd = True
+            sshrunner.run_ssh(cmd)
+        finally:
+            if os.path.exists(self.sqlpasswd_filepath): os.remove(self.sqlpasswd_filepath)
+            if sent_sqlpasswd:
+                sshrunner.run_ssh(f'rm -f {self.sqlpasswd_filepath}')
+
+    def import_local_db(self, sql_filepath):
+        cmd = f"""PGPASSWORD="$(cat {self.sqlpasswd_filepath})" psql -q -w -h {self.db_host} -p {self.db_port} -U {self.db_user} -d {self.db_name} < {sql_filepath}"""
+        self.write_sqlpasswd()
+        try:
+            run(cmd)
+        finally:
+            if os.path.exists(self.sqlpasswd_filepath): os.remove(self.sqlpasswd_filepath)
+
+    def import_remote_db(self, sshrunner, sql_filepath):
+        cmd = f"""PGPASSWORD="$(cat {self.sqlpasswd_filepath})" psql -q -w -h {self.db_host} -p {self.db_port} -U {self.db_user} -d {self.db_name} < {sql_filepath}"""
+        self.write_sqlpasswd()
+        sent_sqlpasswd = False
+        try:
+            sshrunner.ensure_valid_ssh_credentials()
+            sshrunner.run_scp(self.sqlpasswd_filepath, f'{sshrunner.userhost}:')
+            sent_sqlpasswd = True
+            sshrunner.run_ssh(cmd)
+        finally:
+            if os.path.exists(self.sqlpasswd_filepath): os.remove(self.sqlpasswd_filepath)
+            if sent_sqlpasswd:
+                sshrunner.run_ssh(f'rm -f {self.sqlpasswd_filepath}')
