@@ -1,3 +1,4 @@
+import os
 import time
 import logging
 import subprocess
@@ -7,7 +8,12 @@ def ts():
 
 def run(cmd, stdin=None, strip=True, ensure_status=[0]):
     logging.debug(f'Running cmd: {cmd}')
-    p = subprocess.run(cmd, shell=True, executable='/bin/bash', stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if isinstance(cmd, str):
+        p = subprocess.run(cmd, shell=True, executable='/bin/bash', stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    elif isinstance(cmd, list) or isinstance(cmd, tuple):
+        p = subprocess.run(cmd, shell=False, stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    else:
+        raise ValueError('cmd must be a string, list, or tuple')
     stdout = p.stdout.decode().strip() if strip else p.stdout.decode()
     stderr = p.stderr.decode().strip() if strip else p.stderr.decode()
     if ensure_status and p.returncode not in ensure_status:
@@ -92,3 +98,146 @@ def laxfilt_one(items, keymap):
 
 def laxfilt_one_or_none(items, keymap):
     return one_or_none(laxfilt(items, keymap))
+
+class SshRunner():
+    def __init__(self, userhost, ssh_password=None, ssh_password_filepath=None, ssh_privkey_path=None, ssh_pubkey_path=None):
+        if (ssh_password and not ssh_password_filepath) or (ssh_password_filepath and not ssh_password):
+            raise ValueError('ssh_password and ssh_password_filepath must be specified together')
+
+        if (ssh_privkey_path and not ssh_pubkey_path) or (ssh_pubkey_path and not ssh_privkey_path):
+            raise ValueError('ssh_privkey_path and ssh_pubkey_path must be specified together')
+
+        if not ssh_password and not ssh_privkey_path:
+            raise ValueError('must specify ssh_password and/or ssh_privkey_path')
+
+        self.userhost = userhost
+        self.ssh_password = ssh_password
+        self.ssh_password_filepath = ssh_password_filepath
+        self.ssh_privkey_path = ssh_privkey_path
+        self.ssh_pubkey_path = ssh_pubkey_path
+
+    #
+    # Password-based SSH
+    #
+
+    def run_via_sshpass(self, cmd, *args, **kwargs):
+        prelude = ['sshpass', '-f', self.ssh_password_filepath]
+        with open(self.ssh_password_filepath, 'w') as fp: fp.write(self.ssh_password + '\n')
+        try:
+            return run(prelude + cmd, *args, **kwargs)
+        finally:
+            os.remove(self.ssh_password_filepath)
+
+    def run_passbased_ssh(self, remote_cmd, *args, **kwargs):
+        prelude = [ '/usr/bin/ssh', '-q',
+                    '-o', 'PasswordAuthentication=yes',
+                    '-o', 'PubkeyAuthentication=no',
+                    '-o', 'StrictHostKeyChecking=no',
+                    self.userhost,
+        ]
+        return self.run_via_sshpass(prelude + [remote_cmd], *args, **kwargs)
+
+    def run_passbased_scp(self, src, dst, *args, **kwargs):
+        prelude = [ '/usr/bin/scp', '-q',
+                    '-o', 'PasswordAuthentication=yes',
+                    '-o', 'PubkeyAuthentication=no',
+                    '-o', 'StrictHostKeyChecking=no',
+        ]
+        return self.run_via_sshpass(prelude + [src, dst], *args, **kwargs)
+
+    def run_passbased_rsync(self, src, dst, *args, **kwargs):
+        prelude = [ 'rsync', '-a',
+                    '-e', f'ssh -o PasswordAuthentication=yes'
+                              ' -o PubkeyAuthentication=no'
+                              ' -o StrictHostKeyChecking=no',
+        ]
+        return self.run_via_sshpass(prelude + [src, dst], *args, **kwargs)
+
+    def check_ssh_password(self):
+        stdout, stderr, retcode = self.run_passbased_ssh('/bin/true', ensure_status=[])
+        if retcode != 0:
+            logging.error(f'SSH credentials check failed with exit status {retcode} (stdout: "{stdout}", stderr: "{stderr}")')
+        return retcode == 0
+
+    def ensure_valid_ssh_password(self):
+        if not self.check_ssh_password():
+            raise RuntimeError('Invalid SSH Password')
+
+    #
+    # Key-based SSH
+    #
+
+    def run_keybased_ssh(self, remote_cmd, *args, **kwargs):
+        prelude = [ '/usr/bin/ssh', '-q',
+                    '-i', self.ssh_privkey_path,
+                    '-o', 'PasswordAuthentication=no',
+                    '-o', 'PubkeyAuthentication=yes',
+                    '-o', 'StrictHostKeyChecking=no',
+                    self.userhost,
+        ]
+        return run(prelude + [remote_cmd], *args, **kwargs)
+
+    def run_keybased_scp(self, src, dst, *args, **kwargs):
+        prelude = [ '/usr/bin/scp', '-q',
+                    '-i', self.ssh_privkey_path,
+                    '-o', 'PasswordAuthentication=no',
+                    '-o', 'PubkeyAuthentication=yes',
+                    '-o', 'StrictHostKeyChecking=no',
+        ]
+        return run(prelude + [src, dst], *args, **kwargs)
+
+    def run_keybased_rsync(self, src, dst, *args, **kwargs):
+        prelude = [ 'rsync', '-a',
+                    '-e', f'ssh -i {self.ssh_privkey_path}'
+                              ' -o PasswordAuthentication=no'
+                              ' -o PubkeyAuthentication=yes'
+                              ' -o StrictHostKeyChecking=no',
+        ]
+        return run(prelude + [src, dst], *args, **kwargs)
+
+    def check_ssh_key(self):
+        stdout, stderr, retcode = self.run_keybased_ssh('/bin/true', ensure_status=[])
+        if retcode != 0:
+            logging.error(f'SSH credentials check failed with exit status {retcode} (stdout: "{stdout}", stderr: "{stderr}")')
+        return retcode == 0
+
+    def ensure_valid_ssh_key(self):
+        if not self.check_ssh_key():
+            raise RuntimeError('Invalid SSH Key')
+
+    def force_ssh_key_permissions(self, set_webserver_acls=True):
+        self.run_passbased_ssh('setfacl -b $HOME')
+        self.run_passbased_ssh('setfacl -b $HOME/.ssh')
+        self.run_passbased_ssh('setfacl -b $HOME/.ssh/*')
+        self.run_passbased_ssh('chmod 710 $HOME')
+        self.run_passbased_ssh('chmod 700 $HOME/.ssh')
+        self.run_passbased_ssh('chmod 600 $HOME/.ssh/*')
+        if set_webserver_acls:
+            self.run_passbased_ssh('setfacl -m u:apache:r-x $HOME')
+            self.run_passbased_ssh('setfacl -m u:nginx:r-x $HOME')
+
+    def create_ssh_key(self):
+        cmd = [ 'ssh-keygen',
+                '-t', 'rsa',
+                '-b', '4096',
+                '-N', '',
+                '-f', self.ssh_privkey_path
+        ]
+        subprocess.run(cmd)
+
+    def set_ssh_key(self):
+        if ( not os.path.exists(self.ssh_privkey_path) or
+             not os.path.exists(self.ssh_pubkey_path) ): self.create_ssh_key()
+
+        if self.check_ssh_key():
+            logging.debug('SSH key already set')
+            return
+
+        logging.debug('Setting SSH key...')
+        cmd = [ 'ssh-copy-id',
+                '-i', self.ssh_privkey_path,
+                self.userhost
+        ]
+        self.ensure_valid_ssh_password()
+        self.run_via_sshpass(cmd)
+        logging.debug('SSH key set successfully')
