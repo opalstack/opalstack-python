@@ -29,6 +29,15 @@ class ApiModelManager():
             self.api.wait_ready(self.model_name, [item[self.primary_key] for item in created])
         return created
 
+    def create_one(self, tocreate, wait=True):
+        """
+        Create the given item
+        If wait=True, blocks until ready
+        """
+        created = self.create([tocreate], wait=wait)
+        assert len(created) == 1
+        return created[0]
+
     def update(self, toupdate, wait=True):
         """
         Update the given items
@@ -42,6 +51,15 @@ class ApiModelManager():
             self.api.wait_ready(self.model_name, [item[self.primary_key] for item in updated])
         return updated
 
+    def update_one(self, toupdate, wait=True):
+        """
+        Update the given item
+        If wait=True, blocks until ready
+        """
+        updated = self.update([toupdate], wait=wait)
+        assert len(updated) == 1
+        return updated[0]
+
     def delete(self, todelete, wait=True):
         """
         Delete the given items
@@ -52,6 +70,13 @@ class ApiModelManager():
         self.api.http_post_result(f'/{self.model_name}/delete/', [{self.primary_key: item[self.primary_key]} for item in todelete], ensure_status=[200])
         if wait and not self.is_instantaneous:
             self.api.wait_deleted(self.model_name, [item[self.primary_key] for item in todelete])
+
+    def delete_one(self, todelete, wait=True):
+        """
+        Delete the given items
+        If wait=True, blocks until all are deleted
+        """
+        self.delete([todelete], wait=wait)
 
     # -- Equality, Obstruction, and Satisfaction --
     #
