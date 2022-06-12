@@ -155,6 +155,18 @@ class Api():
             'hostname': socket.gethostname(),
         })
 
+    def get_current_primary_ip(self, embed=[]):
+        """
+        Get the primary IP for the current server from which this is being executed.
+        Returns None if not being run from an Opalstack webserver.
+        """
+        server = self.get_current_server()
+        if not server: return None
+        return filt_one_or_none(
+            self.ips.list_all(embed=list(set(embed) | {'server'})),
+            {'server.hostname': server['hostname'], 'primary': True},
+        )
+
     def get_current_osuser(self, embed=['server']):
         """
         Get the current osuser from which this is being executed.
