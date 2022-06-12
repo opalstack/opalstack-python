@@ -4,11 +4,13 @@ import logging
 import subprocess
 import textwrap
 
+log = logging.getLogger(__name__)
+
 def ts():
     return time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())
 
 def run(cmd, stdin=None, strip=True, ensure_status=[0]):
-    logging.debug(f'Running cmd: {cmd}')
+    log.debug(f'Running cmd: {cmd}')
     if isinstance(cmd, str):
         p = subprocess.run(cmd, shell=True, executable='/bin/bash', stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     elif isinstance(cmd, list) or isinstance(cmd, tuple):
@@ -160,7 +162,7 @@ class SshRunner():
     def check_ssh_password(self):
         stdout, stderr, retcode = self.run_passbased_ssh('/bin/true', ensure_status=[])
         if retcode != 0:
-            logging.error(f'SSH credentials check failed with exit status {retcode} (stdout: "{stdout}", stderr: "{stderr}")')
+            log.error(f'SSH credentials check failed with exit status {retcode} (stdout: "{stdout}", stderr: "{stderr}")')
         return retcode == 0
 
     def ensure_valid_ssh_password(self):
@@ -202,7 +204,7 @@ class SshRunner():
     def check_ssh_key(self):
         stdout, stderr, retcode = self.run_keybased_ssh('/bin/true', ensure_status=[])
         if retcode != 0:
-            logging.error(f'SSH credentials check failed with exit status {retcode} (stdout: "{stdout}", stderr: "{stderr}")')
+            log.error(f'SSH credentials check failed with exit status {retcode} (stdout: "{stdout}", stderr: "{stderr}")')
         return retcode == 0
 
     def ensure_valid_ssh_key(self):
@@ -234,17 +236,17 @@ class SshRunner():
              not os.path.exists(self.ssh_pubkey_path) ): self.create_ssh_key()
 
         if self.check_ssh_key():
-            logging.debug('SSH key already set')
+            log.debug('SSH key already set')
             return
 
-        logging.debug('Setting SSH key...')
+        log.debug('Setting SSH key...')
         cmd = [ 'ssh-copy-id',
                 '-i', self.ssh_privkey_path,
                 self.userhost
         ]
         self.ensure_valid_ssh_password()
         self.run_via_sshpass(cmd)
-        logging.debug('SSH key set successfully')
+        log.debug('SSH key set successfully')
 
     #
     # Default SSH
