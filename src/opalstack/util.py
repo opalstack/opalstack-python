@@ -144,7 +144,7 @@ class SshRunner():
         return self.run_via_sshpass(prelude + [remote_cmd], *args, **kwargs)
 
     def run_passbased_scp(self, src, dst, *args, **kwargs):
-        prelude = [ '/usr/bin/scp', '-q',
+        prelude = [ '/usr/bin/scp', '-q', '-C',
                     '-o', 'PasswordAuthentication=yes',
                     '-o', 'PubkeyAuthentication=no',
                     '-o', 'StrictHostKeyChecking=no',
@@ -184,7 +184,7 @@ class SshRunner():
         return run(prelude + [remote_cmd], *args, **kwargs)
 
     def run_keybased_scp(self, src, dst, *args, **kwargs):
-        prelude = [ '/usr/bin/scp', '-q',
+        prelude = [ '/usr/bin/scp', '-q', '-C',
                     '-i', self.ssh_privkey_path,
                     '-o', 'PasswordAuthentication=no',
                     '-o', 'PubkeyAuthentication=yes',
