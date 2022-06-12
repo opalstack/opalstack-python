@@ -1,5 +1,7 @@
 import logging
 
+log = logging.getLogger(__name__)
+
 class ApiModelManager():
     def __init__(self, api):
         self.api = api
@@ -23,7 +25,7 @@ class ApiModelManager():
         """
         created = []
         if not tocreate: return created
-        logging.info(f'Creating {self.model_name_plural}: {repr(tocreate)}')
+        log.info(f'Creating {self.model_name_plural}: {repr(tocreate)}')
         created += self.api.http_post_result(f'/{self.model_name}/create/', tocreate, ensure_status=[200])
         if wait and not self.is_instantaneous:
             self.api.wait_ready(self.model_name, [item[self.primary_key] for item in created])
@@ -45,7 +47,7 @@ class ApiModelManager():
         """
         updated = []
         if not toupdate: return updated
-        logging.info(f'Updating {self.model_name_plural}: {repr(toupdate)}')
+        log.info(f'Updating {self.model_name_plural}: {repr(toupdate)}')
         updated += self.api.http_post_result(f'/{self.model_name}/update/', toupdate, ensure_status=[200])
         if wait and not self.is_instantaneous:
             self.api.wait_ready(self.model_name, [item[self.primary_key] for item in updated])
@@ -66,7 +68,7 @@ class ApiModelManager():
         If wait=True, blocks until all are deleted
         """
         if not todelete: return
-        logging.info(f'Deleting {self.model_name_plural}: {repr(todelete)}')
+        log.info(f'Deleting {self.model_name_plural}: {repr(todelete)}')
         self.api.http_post_result(f'/{self.model_name}/delete/', [{self.primary_key: item[self.primary_key]} for item in todelete], ensure_status=[200])
         if wait and not self.is_instantaneous:
             self.api.wait_deleted(self.model_name, [item[self.primary_key] for item in todelete])
