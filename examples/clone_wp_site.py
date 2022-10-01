@@ -69,7 +69,7 @@ def main(args):
     sqlpasswd_filepath_remote = f'/home/{DST_OSUSER_NAME}/{DST_APP_NAME}.sqlpasswd'
 
     sql_filepath_local = os.path.expanduser(f'~/{DST_APP_NAME}.sql')
-    sql_filepath_remote = f'/home/{DST_OSUSER_NAME}/{DST_APP_NAME}.sql'
+    sql_filepath_remote = f'/home/{DST_OSUSER_NAME}/{DST_APP_NAME}_remote.sql'
 
     # Retrieve web_server and primary IP entries for later use
     log.info(f'Retrieving webserver information for {DST_WEB_SERVER_HOSTNAME}')
@@ -149,7 +149,7 @@ def main(args):
     sshrunner.run_passbased_rsync(f'{src_app_path}/', f'{userhost}:{dst_app_path}/')
 
     log.info(f'Copying database content')
-    sshrunner.run_passbased_scp(sql_filepath_local, f'{userhost}:')
+    sshrunner.run_passbased_scp(sql_filepath_local, f'{userhost}:{sql_filepath_remote}')
     os.remove(sql_filepath_local)
 
     log.info(f'Importing database')
