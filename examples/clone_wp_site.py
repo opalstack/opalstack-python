@@ -148,6 +148,12 @@ def main(args):
     log.info(f'Copying files')
     sshrunner.run_passbased_rsync(f'{src_app_path}/', f'{userhost}:{dst_app_path}/')
 
+    log.info(f'Updating database configuration')
+    sshrunner.run_passbased_ssh(f'/home/{DST_OSUSER_NAME}/bin/wp --path={dst_app_path} config set DB_HOST {dst_db_host}')
+    sshrunner.run_passbased_ssh(f'/home/{DST_OSUSER_NAME}/bin/wp --path={dst_app_path} config set DB_USER {dst_db_user}')
+    sshrunner.run_passbased_ssh(f'/home/{DST_OSUSER_NAME}/bin/wp --path={dst_app_path} config set DB_PASSWORD {dst_db_pass}')
+    sshrunner.run_passbased_ssh(f'/home/{DST_OSUSER_NAME}/bin/wp --path={dst_app_path} config set DB_NAME {dst_db_name}')
+
     log.info(f'Copying database content')
     sshrunner.run_passbased_scp(sql_filepath_local, f'{userhost}:{sql_filepath_remote}')
     os.remove(sql_filepath_local)
