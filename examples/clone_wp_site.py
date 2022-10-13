@@ -80,6 +80,12 @@ def main(args):
         opalapi.ips.list_all(embed=['server']), {'server.hostname': web_server['hostname'], 'primary': True},
     )
 
+    # Retrieve existing app information for later use
+    log.info(f'Retrieving app information for {SRC_APP_NAME}')
+    src_app = filt_one(
+        opalapi.apps.list_all(), {'name': SRC_APP_NAME}
+    )
+
     # Either retrieve or create destination osuser, depending on whether or not a password was specified.
     if DST_OSUSER_PASS:
         log.info(f'Retrieving existing osuser {DST_OSUSER_NAME}')
@@ -111,7 +117,8 @@ def main(args):
         'name': DST_APP_NAME,
         'osuser': dst_osuser['id'],
         'type': 'APA',
-        'installer_url': 'https://raw.githubusercontent.com/opalstack/installers/master/core/wordpress/install.sh'
+        'installer_url': 'https://raw.githubusercontent.com/opalstack/installers/master/core/wordpress/install.sh',
+        'json': src_app['json'],
     })
 
     # Create site
