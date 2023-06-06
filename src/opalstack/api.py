@@ -26,6 +26,7 @@ from .sites import SitesManager
 from .addresses import AddressesManager
 from .mailusers import MailusersManager
 from .quarantinedmails import QuarantinedmailsManager
+from .usage import UsageManager
 
 API_URL = 'https://my.opalstack.com/api/v1'
 
@@ -56,6 +57,7 @@ class Api():
         self.sites = SitesManager(self)
         self.mailusers= MailusersManager(self)
         self.addresses = AddressesManager(self)
+        self.usage = UsageManager(self)
 
         ## Not live yet ##
         # self.quarantinedmails = QuarantinedmailsManager(self)
