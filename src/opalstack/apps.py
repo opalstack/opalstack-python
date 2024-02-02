@@ -16,6 +16,8 @@ class AppsManager(ApiModelManager):
     def update_one(self, *args, **kwargs): return super().update_one(*args, **kwargs)
     def delete(self, *args, **kwargs):     return super().delete(*args, **kwargs)
     def delete_one(self, *args, **kwargs): return super().delete_one(*args, **kwargs)
+    def mark_installed(self, app_ids):
+        self.api.http_post_result(f'/app/installed/', [{'id': app_id} for app_id in app_ids], ensure_status=[200])
 
     def check_equals(self, a, b):
         return ( a['name'] == b['name'] and
