@@ -75,7 +75,7 @@ def remote_psqldb(psqluser_server, remote_psqluser):
 
 def test_psqltool(psqluser_server, local_psqluser, local_psqldb, remote_osuser, remote_psqluser, remote_psqldb):
     # Some time for pg_hba update
-    time.sleep(45)
+    time.sleep(60)
 
     this_psqltool = PsqlTool('localhost', 5432, local_psqluser['name'], local_psqluser['default_password'], local_psqldb['name'], 'this.sqlpasswd')
     this_psqltool.export_local_db('this.sql')

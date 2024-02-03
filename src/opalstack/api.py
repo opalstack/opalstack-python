@@ -131,7 +131,7 @@ class Api():
         pending_uuids = list(uuids)
         i = 0
         while True:
-            #time.sleep(delay)
+            time.sleep(delay)
             i += 1
             log.debug(f'Checking deleted ({i}/{tries}) for {model_name} uuids: {repr(pending_uuids)}')
             for uuid in pending_uuids:
